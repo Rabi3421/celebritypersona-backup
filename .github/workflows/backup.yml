@@ -1,0 +1,53 @@
+name: Nightly database backup
+
+on:
+  schedule:
+    # 20:30 UTC = 02:00 IST, every night. GitHub may start scheduled runs a few minutes late.
+    - cron: "30 20 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Export the database (read-only user)
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_BACKUP_URI }}
+        run: node backup.mjs
+
+      - name: Encrypt with the public key, then delete the unencrypted copy
+        run: |
+          set -euo pipefail
+          f=$(ls out/backup-*.json.gz)
+          gpg --batch --yes --trust-model always --recipient-file keys/backup-public.asc --output "$f.gpg" --encrypt "$f"
+          shred -u "$f"
+          ls -l out
+          echo "stamp=$(basename "$f" .json.gz)" >> "$GITHUB_ENV"
+
+      - name: Keep the encrypted backup for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.stamp }}
+          path: |
+            out/*.json.gz.gpg
+            out/manifest.json
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0

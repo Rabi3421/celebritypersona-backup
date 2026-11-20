@@ -1,0 +1,15 @@
+{
+  "name": "celebritypersona-backup",
+  "private": true,
+  "type": "module",
+  "description": "Nightly encrypted export of the celebritypersona MongoDB database, and a verified restore.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "backup": "node backup.mjs",
+    "restore": "node restore.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "mongodb": "7.8.0"
+  }
+}

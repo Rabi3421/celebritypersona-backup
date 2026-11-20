@@ -1,0 +1,7 @@
+node_modules/
+out/
+*.json.gz
+*.gpg
+*.asc
+!keys/backup-public.asc
+.env*
