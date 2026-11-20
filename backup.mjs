@@ -25,6 +25,8 @@ if (!uri) {
 }
 
 const REQUIRED = ["outfits", "celebrities", "occasions", "brands"];
+/** On GitHub Actions the logs are public (the repository is public), so they stay minimal. */
+const PUBLIC_LOG = process.env.GITHUB_ACTIONS === "true";
 
 async function exportCollection(db, info) {
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -85,10 +87,17 @@ try {
   writeFileSync(`out/${file}`, body);
   writeFileSync("out/manifest.json", JSON.stringify(manifest, null, 2) + "\n");
 
-  console.log(`Backed up ${collections.length} collections, ${collections.reduce((n, c) => n + c.count, 0)} documents, from ${manifest.host} in ${manifest.seconds}s → out/${file} (${body.length} bytes).`);
-  for (const c of manifest.collections) console.log(`  ${c.name.padEnd(20)} ${String(c.count).padStart(6)} docs  ${c.indexes} indexes`);
+  if (PUBLIC_LOG) {
+    // The repository's logs are public: say that it worked, nothing about the data or the server.
+    console.log(`Backup OK: ${collections.length} collections, ${Math.ceil(body.length / 1024)} KB, ${manifest.seconds}s.`);
+  } else {
+    console.log(`Backed up ${collections.length} collections, ${collections.reduce((n, c) => n + c.count, 0)} documents, from ${manifest.host} in ${manifest.seconds}s → out/${file} (${body.length} bytes).`);
+    for (const c of manifest.collections) console.log(`  ${c.name.padEnd(20)} ${String(c.count).padStart(6)} docs  ${c.indexes} indexes`);
+  }
 } catch (err) {
-  console.error(`Backup FAILED: ${safeMessage(err, uri)}`);
+  let message = safeMessage(err, uri);
+  if (PUBLIC_LOG) message = message.split(hostOf(uri)).join("<cluster>").replace(/[\w.-]+\.mongodb\.net/g, "<cluster>");
+  console.error(`Backup FAILED: ${message}`);
   process.exitCode = 1;
 } finally {
   await client.close().catch(() => {});

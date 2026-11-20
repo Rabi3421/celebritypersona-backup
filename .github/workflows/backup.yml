@@ -38,16 +38,15 @@ jobs:
           f=$(ls out/backup-*.json.gz)
           gpg --batch --yes --trust-model always --recipient-file keys/backup-public.asc --output "$f.gpg" --encrypt "$f"
           shred -u "$f"
-          ls -l out
+          # The summary holds counts and the server name; the repository is public, so it is not kept.
+          rm -f out/manifest.json
           echo "stamp=$(basename "$f" .json.gz)" >> "$GITHUB_ENV"
 
       - name: Keep the encrypted backup for 30 days
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.stamp }}
-          path: |
-            out/*.json.gz.gpg
-            out/manifest.json
+          path: out/*.json.gz.gpg
           retention-days: 30
           if-no-files-found: error
           compression-level: 0
